@@ -22,62 +22,91 @@
 
     function App() {
       const [authCode, setAuthCode] = useState('');
+      const [accessToken, setAccessToken] = useState('');
       const [loading, setLoading] = useState(false);
       const [status, setStatus] = useState('');
-
-      useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        if (code) {
-          setAuthCode(code);
-          setStatus('¡Código capturado automáticamente de la URL!');
-        }
-      }, []);
-
-      const handleCodeChange = (e) => {
-        setAuthCode(e.target.value);
-      };
-
-      const handleCanjearToken = async () => {
-        if (!authCode) {
-          setStatus('❌ Por favor ingresa o captura un código válido.');
-          return;
-        }
-        setLoading(true);
-        setStatus('Procesando token...');
-        
-        try {
-          setTimeout(() => {
-            setStatus('✅ Conexión realizada exitosamente.');
-            setLoading(false);
-          }, 1500);
-        } catch (err) {
-          setStatus('❌ Error al obtener el token: ' + err.message);
-          setLoading(false);
-        }
-      };
+      const [socketStatus, setSocketStatus] = useState('Desconectado');
 
       // Configuración de cTrader Open API OAuth
       const clientId = "37758_qrw6XXMCG8WVPK3oNpvpGKrrNtEX9BRKghzzKCT3NSxLCFk8Wb";
       const redirectUri = "https://antothiago1329-create.github.io/quantum-neon/";
       const authUrl = `https://id.ctrader.com/my/settings/openapi/grantingaccess/?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=trading&product=web`;
 
+      useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code) {
+          setAuthCode(code);
+          setStatus('⚡ ¡Código de autorización detectado!');
+        }
+      }, []);
+
+      const handleCanjearToken = async () => {
+        if (!authCode) {
+          setStatus('❌ Por favor inicia sesión primero para obtener el código.');
+          return;
+        }
+
+        setLoading(true);
+        setStatus('Connecting to Demo cTrader WebSocket...');
+
+        try {
+          // Conexión WebSocket al servidor Demo de cTrader
+          const ws = new WebSocket("wss://demo.ctraderapi.com:5036");
+
+          ws.onopen = () => {
+            setSocketStatus('Conectado a Demo Server');
+            setStatus('✅ Conexión establecida con el servidor Demo.');
+            
+            // Enviar solicitud de autenticación de aplicación
+            const appAuthReq = {
+              clientMsgId: "req_1",
+              payloadType: 2100, // PROTO_OA_APPLICATION_AUTH_REQ
+              clientSecret: "", // Se llena si se usa backend
+              clientId: clientId
+            };
+            ws.send(JSON.stringify(appAuthReq));
+          };
+
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log("Respuesta de cTrader Demo:", data);
+            setStatus('✅ Respuesta recibida del servidor Demo.');
+            setLoading(false);
+          };
+
+          ws.onerror = (err) => {
+            console.error(err);
+            setStatus('⚠️️ Error de WebSocket Demo. Verifica la configuración.');
+            setLoading(false);
+          };
+
+          ws.onclose = () => {
+            setSocketStatus('Desconectado');
+          };
+
+        } catch (err) {
+          setStatus('❌ Error: ' + err.message);
+          setLoading(false);
+        }
+      };
+
       return (
         <div class="max-w-md mx-auto p-4 flex flex-col min-h-screen justify-between">
           <header class="text-center my-4">
             <h1 class="text-2xl font-bold text-cyan-400 neon-glow">QUANTUM NEON TERMINAL</h1>
-            <p class="text-xs text-slate-400 mt-1">Conexión cTrader - Pepperstone</p>
+            <p class="text-xs text-slate-400 mt-1">Modo Demo — cTrader / Pepperstone</p>
           </header>
 
           <main class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-            <div class="flex items-center space-x-2 text-cyan-400 font-semibold border-b border-slate-800 pb-2">
-              <span>cTrader - Pepperstone</span>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="text-cyan-400 font-semibold text-sm">cTrader Demo Account</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">DEMO</span>
             </div>
 
             <div class="text-xs text-slate-300 space-y-1">
-              <p>1) Iniciá sesión con tu cuenta cTrader/Pepperstone.</p>
-              <p>2) Te va a redirigir a una URL con <code class="text-cyan-400">?code=...</code> — copiá ese código y pegalo abajo.</p>
-              <p>3) Conectá.</p>
+              <p>1) Inicia sesión para vincular tu cuenta Demo.</p>
+              <p>2) Presiona el botón de canje para activar la conexión WebSocket Demo.</p>
             </div>
 
             <a
@@ -89,12 +118,12 @@
             </a>
 
             <div class="space-y-2">
-              <label class="block text-xs text-slate-400">CÓDIGO (de la URL de redirección)</label>
+              <label class="block text-xs text-slate-400">CÓDIGO OAUTH</label>
               <input
                 type="text"
                 value={authCode}
-                onChange={handleCodeChange}
-                placeholder="pegá el código acá"
+                onChange={(e) => setAuthCode(e.target.value)}
+                placeholder="El código aparecerá aquí automáticamente"
                 class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-cyan-300 focus:outline-none"
               />
             </div>
@@ -102,16 +131,21 @@
             <button
               onClick={handleCanjearToken}
               disabled={loading}
-              class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-lg transition-colors"
+              class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-lg transition-colors"
             >
-              {loading ? 'Procesando...' : '2. CANJEAR CÓDIGO POR TOKEN'}
+              {loading ? 'CONECTANDO...' : '2. CONECTAR A DEMO CTRADER'}
             </button>
 
             {status && (
-              <div class={`p-3 rounded-lg text-xs font-mono ${status.includes('❌') ? 'bg-red-950 text-red-400' : 'bg-slate-950 text-cyan-400'}`}>
+              <div class={`p-3 rounded-lg text-xs font-mono ${status.includes('❌') || status.includes('⚠️') ? 'bg-red-950 text-red-400' : 'bg-slate-950 text-cyan-400'}`}>
                 {status}
               </div>
             )}
+
+            <div class="text-[10px] text-slate-500 flex justify-between">
+              <span>Estado servidor:</span>
+              <span class="text-emerald-400 font-mono">{socketStatus}</span>
+            </div>
           </main>
 
           <footer class="mt-8 border-t border-slate-800 pt-3 flex justify-around text-[10px] text-slate-500">
