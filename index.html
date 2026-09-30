@@ -47,7 +47,6 @@
         setStatus('Procesando token...');
         
         try {
-          // Aquí va la lógica para intercambiar el código por token
           setTimeout(() => {
             setStatus('✅ Conexión realizada exitosamente.');
             setLoading(false);
@@ -58,10 +57,10 @@
         }
       };
 
-      // URLs configuradas correctamente para OAuth cTrader
+      // Configuración de cTrader Open API OAuth
       const clientId = "37758_qrw6XXMCG8WVPK3oNpvpGKrrNtEX9BRKghzzKCT3NSxLCFk8Wb";
       const redirectUri = "https://antothiago1329-create.github.io/quantum-neon/";
-      const authUrl = `https://id.ctrader.com/oauth/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=trading`;
+      const authUrl = `https://id.ctrader.com/my/settings/openapi/grantingaccess/?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=trading&product=web`;
 
       return (
         <div class="max-w-md mx-auto p-4 flex flex-col min-h-screen justify-between">
